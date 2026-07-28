@@ -1,6 +1,9 @@
-use std::array;
+use std::{array, io::BufRead};
 
-use crate::algo::{Algo, ValidationError, ValidationResult};
+use crate::{
+    algo::{Algo, ValidationError, ValidationResult},
+    utils::keep_reading_into_buffer::keep_reading_into_buffer,
+};
 
 /// The MD5 message-digest algorithm is a widely used hash function producing a 128-bit hash value.
 #[derive(Default)]
@@ -13,18 +16,19 @@ impl Algo for Md5 {
     /// use rash::algo::{Algo, md5::Md5};
     ///
     /// let md5 = Md5::new();
-    /// assert_eq!(md5.hash(b"abc"), "900150983cd24fb0d6963f7d28e17f72");
-    /// assert_eq!(md5.hash(b""), "d41d8cd98f00b204e9800998ecf8427e");
+    /// assert_eq!(md5.hash(Box::new(&b"abc"[..])), "900150983cd24fb0d6963f7d28e17f72");
+    /// assert_eq!(md5.hash(Box::new(&b""[..])), "d41d8cd98f00b204e9800998ecf8427e");
     /// ```
-    fn hash(&self, buffer: &[u8]) -> String {
+    fn hash(&self, mut reader: Box<dyn BufRead>) -> String {
         // A four-word buffer (A,B,C,D) is used to compute the message digest. Here each of A, B, C,
-        // D is a 32-bit register.
+        // D is a 32-bit register. These will be used to output the final digest.
         let mut a: u32 = 0x67452301;
         let mut b: u32 = 0xefcdab89;
         let mut c: u32 = 0x98badcfe;
         let mut d: u32 = 0x10325476;
 
-        // This step requires the definition of 4 auxiliary functions.
+        // These are the 4 auxiliary functions that are used in each round to calculate the value
+        // for the 4 buffers.
         let f = |x: u32, y: u32, z: u32| (x & y) | ((!x) & z);
         let g = |x: u32, y: u32, z: u32| (z & x) | ((!z) & y);
         let h = |x: u32, y: u32, z: u32| x ^ y ^ z;
@@ -56,9 +60,9 @@ impl Algo for Md5 {
         //     })
         //     .collect();
 
-        // Each round of this step performs some operations, and each operation performs some
-        // shifting. This table matches each round with the related amount of bits to be shifted.
-        let rotations_table = [
+        // Each round performs some operations, and each operation performs some bit shifting. This
+        // table matches each round with the related amount of bits to be shifted.
+        let shifts_table = [
             // Round 1 shifts amounts.
             [7, 12, 17, 22],
             // Round 2 shifts amounts.
@@ -69,7 +73,7 @@ impl Algo for Md5 {
             [6, 10, 15, 21],
         ];
 
-        // Define the function that processes each the message in 16-word (64 byte) chunks.
+        // Define the function that processes each message in 16-word (64 byte) chunks.
         let mut process_chunk = |chunk: &[u8]| {
             // MD5 words are 32-bit little-endian, 4 bytes each.
             let words: [u32; 16] = array::from_fn(|index| {
@@ -83,31 +87,28 @@ impl Algo for Md5 {
             let mut cc = c;
             let mut dd = d;
 
-            // Main loop: 4 rounds of 16 operations each, using the F/G/H/I auxiliary functions.
+            // Main loop: 4 rounds of 16 operations each, using the `f`/`g`/`h`/`i` auxiliary
+            // functions.
             for index in 0..64 {
                 // `k` selects which of the 16 message words feeds this step; each round uses its
                 // own permutation of word indices, per the RFC.
                 let (round, k, shift) = match index {
                     // Round 1 (F): words in order, 0..16.
-                    0..16 => (f(bb, cc, dd), index, rotations_table[0][index % 4]),
+                    0..16 => (f(bb, cc, dd), index, shifts_table[0][index % 4]),
                     // Round 2 (G): word index (5i + 1) mod 16.
                     16..32 => (
                         g(bb, cc, dd),
                         (5 * index + 1) % 16,
-                        rotations_table[1][index % 4],
+                        shifts_table[1][index % 4],
                     ),
                     // Round 3 (H): word index (3i + 5) mod 16.
                     32..48 => (
                         h(bb, cc, dd),
                         (3 * index + 5) % 16,
-                        rotations_table[2][index % 4],
+                        shifts_table[2][index % 4],
                     ),
                     // Round 4 (I): word index (7i) mod 16.
-                    48..64 => (
-                        i(bb, cc, dd),
-                        (7 * index) % 16,
-                        rotations_table[3][index % 4],
-                    ),
+                    48..64 => (i(bb, cc, dd), (7 * index) % 16, shifts_table[3][index % 4]),
                     _ => unreachable!(),
                 };
 
@@ -131,20 +132,25 @@ impl Algo for Md5 {
             d = d.wrapping_add(dd);
         };
 
-        // Process every full 64-byte block straight out of the input buffer — no copy needed.
-        let mut chunks = buffer.chunks_exact(64);
-        for chunk in &mut chunks {
-            process_chunk(chunk);
-        }
+        // Process every full 64-byte block straight out of the reader.
+        let mut buffer = [0u8; 64];
+
+        let Ok((bytes_read, left_over)) =
+            keep_reading_into_buffer(&mut buffer, &mut reader, |buffer| {
+                process_chunk(&buffer);
+            })
+        else {
+            todo!("Update this function to return a result.");
+        };
 
         // Only the remainder (at most 63 bytes) needs to be copied, so we can append the
         // padding (Steps 1 and 2) without cloning the whole input like the original does.
-        let mut tail = chunks.remainder().to_vec();
+        let mut tail = left_over.to_vec();
         tail.push(0b1000_0000);
         while tail.len() % 64 != 56 {
             tail.push(0x00);
         }
-        tail.extend((buffer.len() as u64).wrapping_mul(8).to_le_bytes());
+        tail.extend(bytes_read.wrapping_mul(8).to_le_bytes());
 
         for chunk in tail.chunks_exact(64) {
             process_chunk(chunk);
@@ -212,7 +218,7 @@ mod tests {
         ]
         .iter()
         .for_each(|&(input, expected)| {
-            assert_eq!(md5.hash(input.as_bytes()), expected);
+            assert_eq!(md5.hash(Box::new(input.as_bytes())), expected);
         });
     }
 
@@ -220,8 +226,11 @@ mod tests {
     #[test]
     fn handles_56_byte_input() {
         let md5 = Md5::new();
-        let input = [0u8; 56];
-        assert_eq!(md5.hash(&input), "e3c4dd21a9171fd39d208efa09bf7883");
+        let input = vec![0u8; 56];
+        assert_eq!(
+            md5.hash(Box::new(std::io::Cursor::new(input))),
+            "e3c4dd21a9171fd39d208efa09bf7883"
+        );
     }
 
     #[test]

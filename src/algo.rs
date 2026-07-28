@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, io::BufRead};
 
 pub mod md5;
 
@@ -22,13 +22,14 @@ impl Display for ValidationError {
 /// ### Examaple
 ///
 /// ```
+/// use std::io::BufRead;
 /// use rash::algo::{Algo, ValidationResult};
 ///
 /// #[derive(Default)]
 /// struct MyAlgo {};
 ///
 /// impl Algo for MyAlgo {
-///     fn hash(&self, buffer: &[u8]) -> String {
+///     fn hash(&self, buffer: Box<dyn BufRead>) -> String {
 ///         return "MyAlgoHash".to_string();
 ///     }
 ///
@@ -37,15 +38,18 @@ impl Display for ValidationError {
 ///     }
 /// }
 /// ```
-pub trait Algo: Default {
+pub trait Algo {
     /// Hash the input.
-    fn hash(&self, buffer: &[u8]) -> String;
+    fn hash(&self, reader: Box<dyn BufRead>) -> String;
 
     /// Validate a hash.
     fn validate(&self, hash: &str) -> ValidationResult;
 
     /// Create a new instance of self.
-    fn new() -> Self {
+    fn new() -> Self
+    where
+        Self: Sized + Default,
+    {
         Self::default()
     }
 }

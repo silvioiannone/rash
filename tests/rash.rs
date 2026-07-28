@@ -47,7 +47,7 @@ fn hashes_empty_stdin() {
 
 #[test]
 fn rejects_unknown_algorithm() {
-    let (_, stderr, code) = run(&["sha256"], b"abc");
+    let (_, stderr, code) = run(&["non_existing_algo"], b"abc");
     assert_ne!(code, 0);
     assert!(stderr.contains("invalid value") || stderr.contains("possible values"));
 }

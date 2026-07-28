@@ -2,8 +2,8 @@ use crate::cli::{AvailableAlgo, Cli};
 use rash::algo::{Algo, ValidationError, md5::Md5};
 use std::{
     fmt::{self, Display},
-    fs,
-    io::{self, Error, Read},
+    fs::File,
+    io::{self, BufRead, BufReader, Error},
 };
 
 /// An error produced while running the CLI that causese `rash` to exit with a non-0 status code.
@@ -43,23 +43,21 @@ impl From<ValidationError> for RashError {
 
 /// Execute the CLI based on the parsed arguments.
 pub fn run(cli: Cli) -> Result<(), RashError> {
-    let algo = Box::new(match cli.algo {
-        AvailableAlgo::Md5 => Md5::new(),
-    });
-
-    let mut buffer = Vec::new();
+    let algo: Box<dyn Algo> = match cli.algo {
+        AvailableAlgo::Md5 => Box::new(Md5::new()),
+    };
 
     if let Some(hash) = cli.verify {
         return algo.validate(&hash).map_err(RashError::from);
     }
 
-    if let Some(path) = cli.file {
-        buffer = fs::read(&path)?;
+    let reader: Box<dyn BufRead> = if let Some(path) = cli.file {
+        Box::new(BufReader::new(File::open(path)?))
     } else {
-        io::stdin().read_to_end(&mut buffer)?;
-    }
+        Box::new(BufReader::new(io::stdin()))
+    };
 
-    let hash = algo.hash(&buffer);
+    let hash = algo.hash(reader);
 
     if let Some(expected) = cli.compare {
         return if expected == hash {
