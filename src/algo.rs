@@ -1,14 +1,27 @@
-use std::{fmt::Display, io::BufRead};
+use std::{error::Error, fmt::Display, io::BufRead};
 
 pub mod md5;
 
+pub type HashingResult = Result<String, HashingError>;
 pub type ValidationResult = Result<(), ValidationError>;
+
+// An error returned when hashing the input.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HashingError(pub String);
+
+impl Error for HashingError {}
+
+impl Display for HashingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Hashing error: {}", self.0)
+    }
+}
 
 // A validation error.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValidationError(pub String);
 
-impl std::error::Error for ValidationError {}
+impl Error for ValidationError {}
 
 impl Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -23,14 +36,14 @@ impl Display for ValidationError {
 ///
 /// ```
 /// use std::io::BufRead;
-/// use rash::algo::{Algo, ValidationResult};
+/// use rash::algo::{Algo, HashingResult, ValidationResult};
 ///
 /// #[derive(Default)]
 /// struct MyAlgo {};
 ///
 /// impl Algo for MyAlgo {
-///     fn hash(&self, buffer: Box<dyn BufRead>) -> String {
-///         return "MyAlgoHash".to_string();
+///     fn hash(&self, buffer: Box<dyn BufRead>) -> HashingResult {
+///         return Ok("MyAlgoHash".to_string());
 ///     }
 ///
 ///     fn validate(&self, hash: &str) -> ValidationResult {
@@ -40,7 +53,7 @@ impl Display for ValidationError {
 /// ```
 pub trait Algo {
     /// Hash the input.
-    fn hash(&self, reader: Box<dyn BufRead>) -> String;
+    fn hash(&self, reader: Box<dyn BufRead>) -> HashingResult;
 
     /// Validate a hash.
     fn validate(&self, hash: &str) -> ValidationResult;

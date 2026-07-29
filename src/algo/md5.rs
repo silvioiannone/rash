@@ -1,7 +1,7 @@
 use std::{array, io::BufRead};
 
 use crate::{
-    algo::{Algo, ValidationError, ValidationResult},
+    algo::{Algo, HashingError, HashingResult, ValidationError, ValidationResult},
     utils::keep_reading_into_buffer::keep_reading_into_buffer,
 };
 
@@ -16,10 +16,10 @@ impl Algo for Md5 {
     /// use rash::algo::{Algo, md5::Md5};
     ///
     /// let md5 = Md5::new();
-    /// assert_eq!(md5.hash(Box::new(&b"abc"[..])), "900150983cd24fb0d6963f7d28e17f72");
-    /// assert_eq!(md5.hash(Box::new(&b""[..])), "d41d8cd98f00b204e9800998ecf8427e");
+    /// assert_eq!(md5.hash(Box::new(&b"abc"[..])).unwrap(), "900150983cd24fb0d6963f7d28e17f72");
+    /// assert_eq!(md5.hash(Box::new(&b""[..])).unwrap(), "d41d8cd98f00b204e9800998ecf8427e");
     /// ```
-    fn hash(&self, mut reader: Box<dyn BufRead>) -> String {
+    fn hash(&self, mut reader: Box<dyn BufRead>) -> HashingResult {
         // A four-word buffer (A,B,C,D) is used to compute the message digest. Here each of A, B, C,
         // D is a 32-bit register. These will be used to output the final digest.
         let mut a: u32 = 0x67452301;
@@ -137,10 +137,10 @@ impl Algo for Md5 {
 
         let Ok((bytes_read, left_over)) =
             keep_reading_into_buffer(&mut buffer, &mut reader, |buffer| {
-                process_chunk(&buffer);
+                process_chunk(buffer);
             })
         else {
-            todo!("Update this function to return a result.");
+            return Err(HashingError("Unable to read input.".to_string()));
         };
 
         // Only the remainder (at most 63 bytes) needs to be copied, so we can append the
@@ -160,13 +160,13 @@ impl Algo for Md5 {
         //
         // Return the resulting 128-bit long message digest. We begin with the low-order byte of A,
         // and end with the high-order byte of D.
-        format!(
+        Ok(format!(
             "{:08x}{:08x}{:08x}{:08x}",
             a.swap_bytes(),
             b.swap_bytes(),
             c.swap_bytes(),
             d.swap_bytes()
-        )
+        ))
     }
 
     /// Validate a hash.
@@ -218,7 +218,10 @@ mod tests {
         ]
         .iter()
         .for_each(|&(input, expected)| {
-            assert_eq!(md5.hash(Box::new(input.as_bytes())), expected);
+            assert_eq!(
+                md5.hash(Box::new(input.as_bytes())),
+                Ok(expected.to_string())
+            );
         });
     }
 
@@ -229,7 +232,7 @@ mod tests {
         let input = vec![0u8; 56];
         assert_eq!(
             md5.hash(Box::new(std::io::Cursor::new(input))),
-            "e3c4dd21a9171fd39d208efa09bf7883"
+            Ok("e3c4dd21a9171fd39d208efa09bf7883".to_string())
         );
     }
 

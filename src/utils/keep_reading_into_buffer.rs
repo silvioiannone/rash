@@ -24,7 +24,7 @@ use std::io::BufRead;
 /// assert_eq!(left_over, b"efg");
 /// assert_eq!(chunks, vec![b"abcd".to_vec()]);
 /// ```
-pub fn keep_reading_into_buffer<'b, C: FnMut(&[u8]) -> ()>(
+pub fn keep_reading_into_buffer<'b, C: FnMut(&[u8])>(
     buffer: &'b mut [u8],
     reader: &'b mut Box<dyn BufRead>,
     mut callback: C,
@@ -45,7 +45,7 @@ pub fn keep_reading_into_buffer<'b, C: FnMut(&[u8]) -> ()>(
         total_bytes += read_bytes;
 
         if filled == buffer.len() {
-            callback(buffer.as_ref());
+            callback(buffer);
             filled = 0;
         }
     }

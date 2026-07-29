@@ -1,5 +1,5 @@
 use crate::cli::{AvailableAlgo, Cli};
-use rash::algo::{Algo, ValidationError, md5::Md5};
+use rash::algo::{Algo, HashingError, ValidationError, md5::Md5};
 use std::{
     fmt::{self, Display},
     fs::File,
@@ -11,6 +11,7 @@ use std::{
 pub enum RashError {
     Io(Error),
     Validation(ValidationError),
+    Hashing(HashingError),
     Mismatch { expected: String, resolved: String },
 }
 
@@ -19,6 +20,7 @@ impl Display for RashError {
         match self {
             RashError::Io(error) => write!(f, "{error}"),
             RashError::Validation(error) => write!(f, "{error}"),
+            RashError::Hashing(error) => write!(f, "{error}"),
             RashError::Mismatch { expected, resolved } => write!(
                 f,
                 "Expected hash doesn't match resolved one.\nExpected: {expected} - Resolved: {resolved}"
@@ -41,6 +43,12 @@ impl From<ValidationError> for RashError {
     }
 }
 
+impl From<HashingError> for RashError {
+    fn from(error: HashingError) -> Self {
+        RashError::Hashing(error)
+    }
+}
+
 /// Execute the CLI based on the parsed arguments.
 pub fn run(cli: Cli) -> Result<(), RashError> {
     let algo: Box<dyn Algo> = match cli.algo {
@@ -57,7 +65,7 @@ pub fn run(cli: Cli) -> Result<(), RashError> {
         Box::new(BufReader::new(io::stdin()))
     };
 
-    let hash = algo.hash(reader);
+    let hash = algo.hash(reader)?;
 
     if let Some(expected) = cli.compare {
         return if expected == hash {
