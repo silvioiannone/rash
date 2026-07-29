@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Display, io::BufRead};
 
 pub mod md5;
+pub mod sha256;
 
 pub type HashingResult = Result<String, HashingError>;
 pub type ValidationResult = Result<(), ValidationError>;
@@ -32,7 +33,7 @@ impl Display for ValidationError {
 /// This trait must be implemented for every new hashing algorithm that has to be integrated with
 /// `rash`.
 ///
-/// ### Examaple
+/// ### Example
 ///
 /// ```
 /// use std::io::BufRead;

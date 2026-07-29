@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum AvailableAlgo {
     Md5,
+    Sha256,
 }
 
 #[derive(Parser)]

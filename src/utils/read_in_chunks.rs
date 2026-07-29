@@ -8,14 +8,14 @@ use std::io::BufRead;
 ///
 /// ### Example
 /// ```
-/// use rash::utils::keep_reading_into_buffer::keep_reading_into_buffer;
+/// use rash::utils::read_in_chunks::read_in_chunks;
 /// use std::io::{BufRead, Cursor};
 ///
 /// let mut buffer = [0u8; 4];
 /// let mut reader: Box<dyn BufRead> = Box::new(Cursor::new(b"abcdefg".to_vec()));
 /// let mut chunks: Vec<Vec<u8>> = Vec::new();
 ///
-/// let (total, left_over) = keep_reading_into_buffer(&mut buffer, &mut reader, |chunk| {
+/// let (total, left_over) = read_in_chunks(&mut buffer, &mut reader, |chunk| {
 ///     chunks.push(chunk.to_vec())
 /// })
 /// .unwrap();
@@ -24,7 +24,7 @@ use std::io::BufRead;
 /// assert_eq!(left_over, b"efg");
 /// assert_eq!(chunks, vec![b"abcd".to_vec()]);
 /// ```
-pub fn keep_reading_into_buffer<'b, C: FnMut(&[u8])>(
+pub fn read_in_chunks<'b, C: FnMut(&[u8])>(
     buffer: &'b mut [u8],
     reader: &'b mut Box<dyn BufRead>,
     mut callback: C,
@@ -95,7 +95,7 @@ mod tests {
         let mut calls = 0;
 
         let (total, left_over) =
-            keep_reading_into_buffer(&mut buffer, &mut reader, |_| calls += 1).unwrap();
+            read_in_chunks(&mut buffer, &mut reader, |_| calls += 1).unwrap();
 
         assert_eq!(total, 0);
         assert_eq!(left_over, &[] as &[u8]);
@@ -109,7 +109,7 @@ mod tests {
         let mut calls = 0;
 
         let (total, left_over) =
-            keep_reading_into_buffer(&mut buffer, &mut reader, |_| calls += 1).unwrap();
+            read_in_chunks(&mut buffer, &mut reader, |_| calls += 1).unwrap();
 
         assert_eq!(total, 3);
         assert_eq!(left_over, b"abc");
@@ -122,7 +122,7 @@ mod tests {
         let mut reader = reader_for(b"abcdefgh");
         let mut chunks: Vec<Vec<u8>> = Vec::new();
 
-        let (total, left_over) = keep_reading_into_buffer(&mut buffer, &mut reader, |chunk| {
+        let (total, left_over) = read_in_chunks(&mut buffer, &mut reader, |chunk| {
             chunks.push(chunk.to_vec())
         })
         .unwrap();
@@ -138,7 +138,7 @@ mod tests {
         let mut reader = reader_for(b"abcdefg");
         let mut chunks: Vec<Vec<u8>> = Vec::new();
 
-        let (total, left_over) = keep_reading_into_buffer(&mut buffer, &mut reader, |chunk| {
+        let (total, left_over) = read_in_chunks(&mut buffer, &mut reader, |chunk| {
             chunks.push(chunk.to_vec())
         })
         .unwrap();
@@ -157,7 +157,7 @@ mod tests {
         });
         let mut chunks: Vec<Vec<u8>> = Vec::new();
 
-        let (total, left_over) = keep_reading_into_buffer(&mut buffer, &mut reader, |chunk| {
+        let (total, left_over) = read_in_chunks(&mut buffer, &mut reader, |chunk| {
             chunks.push(chunk.to_vec())
         })
         .unwrap();
