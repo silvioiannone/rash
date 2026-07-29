@@ -2,7 +2,7 @@ use std::{array, io::BufRead};
 
 use crate::{
     algo::{Algo, HashingError, HashingResult, ValidationError, ValidationResult},
-    utils::keep_reading_into_buffer::keep_reading_into_buffer,
+    utils::read_in_chunks_padded::{Endianess, Options, read_in_chunks_padded},
 };
 
 /// The MD5 message-digest algorithm is a widely used hash function producing a 128-bit hash value.
@@ -135,26 +135,15 @@ impl Algo for Md5 {
         // Process every full 64-byte block straight out of the reader.
         let mut buffer = [0u8; 64];
 
-        let Ok((bytes_read, left_over)) =
-            keep_reading_into_buffer(&mut buffer, &mut reader, |buffer| {
-                process_chunk(buffer);
-            })
-        else {
-            return Err(HashingError("Unable to read input.".to_string()));
-        };
-
-        // Only the remainder (at most 63 bytes) needs to be copied, so we can append the
-        // padding (Steps 1 and 2) without cloning the whole input like the original does.
-        let mut tail = left_over.to_vec();
-        tail.push(0b1000_0000);
-        while tail.len() % 64 != 56 {
-            tail.push(0x00);
-        }
-        tail.extend(bytes_read.wrapping_mul(8).to_le_bytes());
-
-        for chunk in tail.chunks_exact(64) {
-            process_chunk(chunk);
-        }
+        read_in_chunks_padded(
+            &mut buffer,
+            &mut reader,
+            |chunk| process_chunk(chunk),
+            Options {
+                endianess: Endianess::Little,
+            },
+        )
+        .map_err(HashingError)?;
 
         // Step 5: Output.
         //
