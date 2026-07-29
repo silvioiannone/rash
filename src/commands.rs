@@ -2,7 +2,7 @@ use crate::cli::{
     AvailableAlgo::{self},
     Cli,
 };
-use rash::algo::{Algo, HashingError, ValidationError, md5::Md5, sha256::Sha256};
+use rash::algo::{Algo, HashingError, ValidationError, md5::Md5, sha224::Sha224, sha256::Sha256};
 use std::{
     fmt::{self, Display},
     fs::File,
@@ -57,6 +57,7 @@ pub fn run(cli: Cli) -> Result<(), RashError> {
     let algo: Box<dyn Algo> = match cli.algo {
         AvailableAlgo::Md5 => Box::new(Md5::new()),
         AvailableAlgo::Sha256 => Box::new(Sha256::new()),
+        AvailableAlgo::Sha224 => Box::new(Sha224::new()),
     };
 
     if let Some(hash) = cli.verify {

@@ -5,6 +5,7 @@ use clap::{Parser, ValueEnum};
 pub enum AvailableAlgo {
     Md5,
     Sha256,
+    Sha224,
 }
 
 #[derive(Parser)]

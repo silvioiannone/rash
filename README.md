@@ -24,4 +24,4 @@ format.
 | `-c, --compare <HASH>` | Compare the input's hash against `<HASH>`; exits non-zero on mismatch. |
 | `-v, --verify <HASH>`  | Only check that `<HASH>` is well-formed for the chosen algorithm.      |
 
-Supported algorithms: `md5`.
+Supported algorithms: `md5`, `sha256`, `sha224`.

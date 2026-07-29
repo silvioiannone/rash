@@ -1,6 +1,8 @@
 use std::{error::Error, fmt::Display, io::BufRead};
 
 pub mod md5;
+pub mod sha2;
+pub mod sha224;
 pub mod sha256;
 
 pub type HashingResult = Result<String, HashingError>;
