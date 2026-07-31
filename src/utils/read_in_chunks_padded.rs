@@ -10,12 +10,16 @@ pub enum Endianess {
 pub struct Options {
     /// Specify the endianess to use when appending the message's size at the end.
     pub endianess: Endianess,
+
+    /// Number of bytes reserved at the end of the padded chunk(s) for the message's bit length.
+    pub length_bytes: usize,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Self {
             endianess: Endianess::Big,
+            length_bytes: 8,
         }
     }
 }
@@ -72,20 +76,32 @@ pub fn read_in_chunks_padded<C: FnMut(&[u8])>(
     // whole byte (0x80) instead.
     tail.push(0b1000_0000);
 
-    // Then, keep adding 0s until the tail length is a multiple of the chunk size, minus 8 bytes,
-    // which will contain the message length in bits.
-    while tail.len() % chunk_size != chunk_size - 8 {
+    // Then, keep adding 0s until the tail length is a multiple of the chunk size, minus
+    // `length_bytes` bytes, which will contain the message length in bits.
+    while tail.len() % chunk_size != chunk_size - options.length_bytes {
         tail.push(0x00);
     }
 
     let bit_length = bytes_read.wrapping_mul(8);
-
     let bit_length = match options.endianess {
         Endianess::Big => bit_length.to_be_bytes(),
         Endianess::Little => bit_length.to_le_bytes(),
     };
 
-    tail.extend(bit_length);
+    // The length field may be wider than the native word size (e.g. SHA-384/512 use a 128-bit
+    // length), so pad it with leading/trailing zeros on the side away from the significant bytes.
+    let mut length_field = vec![0u8; options.length_bytes];
+    match options.endianess {
+        Endianess::Big => {
+            let start = options.length_bytes - bit_length.len();
+            length_field[start..].copy_from_slice(&bit_length);
+        }
+        Endianess::Little => {
+            length_field[..bit_length.len()].copy_from_slice(&bit_length);
+        }
+    }
+
+    tail.extend(length_field);
 
     for chunk in tail.chunks_exact(chunk_size) {
         callback(chunk);
@@ -163,6 +179,35 @@ mod tests {
         assert_eq!(&chunks[1][56..], &(56u64 * 8).to_be_bytes());
     }
 
+    // Regression test: with a 128-byte chunk and a 16-byte length field (SHA-384/512), the `1`
+    // bit no longer fits alongside the data once the message reaches 112 bytes, so padding must
+    // spill into a second chunk instead of fitting the (8-byte-only) length in the first one.
+    #[test]
+    fn spills_into_a_second_chunk_at_the_112_byte_boundary_with_a_16_byte_length_field() {
+        let mut buffer = [0u8; 128];
+        let mut reader: Box<dyn BufRead> = Box::new(Cursor::new(vec![0u8; 112]));
+        let mut chunks: Vec<Vec<u8>> = Vec::new();
+
+        read_in_chunks_padded(
+            &mut buffer,
+            &mut reader,
+            |chunk| chunks.push(chunk.to_vec()),
+            Options {
+                length_bytes: 16,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(chunks.len(), 2);
+        assert!(chunks[0][..112].iter().all(|&byte| byte == 0));
+        assert_eq!(chunks[0][112], 0x80);
+        assert!(chunks[0][113..].iter().all(|&byte| byte == 0));
+        assert!(chunks[1][..112].iter().all(|&byte| byte == 0));
+        assert_eq!(&chunks[1][112..120], &[0u8; 8]);
+        assert_eq!(&chunks[1][120..], &(112u64 * 8).to_be_bytes());
+    }
+
     // A whole-chunk input is passed straight to `callback` by the inner reader with no leftover
     // bytes, so padding still needs to append one more, otherwise-empty, chunk.
     #[test]
@@ -183,12 +228,14 @@ mod tests {
             b"abc",
             Options {
                 endianess: Endianess::Big,
+                ..Default::default()
             },
         );
         let little = run(
             b"abc",
             Options {
                 endianess: Endianess::Little,
+                ..Default::default()
             },
         );
 

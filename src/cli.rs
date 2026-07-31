@@ -6,6 +6,8 @@ pub enum AvailableAlgo {
     Md5,
     Sha256,
     Sha224,
+    Sha384,
+    Sha512,
 }
 
 #[derive(Parser)]

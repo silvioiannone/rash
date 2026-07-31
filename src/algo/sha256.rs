@@ -1,6 +1,6 @@
 use crate::algo::{
     Algo, HashingResult, ValidationError, ValidationResult,
-    sha2::{Sha2, Variant},
+    sha2::{HashSize, Sha2, Sha2Params},
 };
 
 /// The SHA-256 (Secure Hash Algorithms) hashing algorithm implementation.
@@ -30,7 +30,10 @@ impl Algo for Sha256 {
             0x5be0cd19,
         ];
 
-        return Sha2::hash(hash_words, reader, Variant::Sha256);
+        Sha2::hash::<u32>(
+            reader,
+            Sha2Params::for_sha224_256(hash_words, HashSize::Sha256_512),
+        )
     }
 
     /// Validate a hash.

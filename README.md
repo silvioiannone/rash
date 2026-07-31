@@ -14,9 +14,8 @@ A small CLI hashing utility, written in Rust.
 rash <ALGO> [OPTIONS]
 ```
 
-Reads from a file (`-f/--file`) or stdin, and prints the hash. It can instead
-compare a computed hash against an expected one, or just verify a hash's
-format.
+Reads from a file (`-f/--file`) or stdin, and prints the hash. It can also compare a computed
+hash against an expected one, or just verify a hash's format.
 
 | Option                 | Description                                                            |
 | ---------------------- | ---------------------------------------------------------------------- |
@@ -24,4 +23,4 @@ format.
 | `-c, --compare <HASH>` | Compare the input's hash against `<HASH>`; exits non-zero on mismatch. |
 | `-v, --verify <HASH>`  | Only check that `<HASH>` is well-formed for the chosen algorithm.      |
 
-Supported algorithms: `md5`, `sha256`, `sha224`.
+Supported algorithms: `md5`, `sha256`, `sha224`, `sha512`, `sha384`.

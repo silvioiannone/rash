@@ -1,6 +1,6 @@
 use crate::algo::{
     Algo, HashingResult, ValidationError, ValidationResult,
-    sha2::{Sha2, Variant},
+    sha2::{HashSize, Sha2, Sha2Params},
 };
 
 /// The SHA-224 (Secure Hash Algorithms) hashing algorithm implementation.
@@ -30,7 +30,10 @@ impl Algo for Sha224 {
             0xbefa4fa4,
         ];
 
-        return Sha2::hash(hash_words, reader, Variant::Sha224);
+        Sha2::hash::<u32>(
+            reader,
+            Sha2Params::for_sha224_256(hash_words, HashSize::Sha224),
+        )
     }
 
     /// Validate a hash.
@@ -125,8 +128,7 @@ mod tests {
     #[test]
     fn validates_a_valid_hash() {
         let sha224 = Sha224::new();
-        let result =
-            sha224.validate("d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f");
+        let result = sha224.validate("d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f");
         assert_eq!(result, Ok(()));
     }
 }

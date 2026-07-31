@@ -141,6 +141,7 @@ impl Algo for Md5 {
             |chunk| process_chunk(chunk),
             Options {
                 endianess: Endianess::Little,
+                ..Options::default()
             },
         )
         .map_err(HashingError)?;

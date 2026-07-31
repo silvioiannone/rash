@@ -4,6 +4,8 @@ pub mod md5;
 pub mod sha2;
 pub mod sha224;
 pub mod sha256;
+pub mod sha384;
+pub mod sha512;
 
 pub type HashingResult = Result<String, HashingError>;
 pub type ValidationResult = Result<(), ValidationError>;
